@@ -125,6 +125,9 @@
             >
               <h3 class="text-lg font-semibold text-gray-900 mb-4">
                 Performance Metrics
+                <span class="text-base font-medium text-gray-500"
+                  >(vs. previous 7 days)</span
+                >
               </h3>
               <div
                 id="metricsCard"
@@ -412,9 +415,15 @@
 
       /** Processes raw data and triggers all rendering functions. */
       function renderDashboard() {
-        const totals7Day = calculateTotals(7);
-        renderFunnelChart(totals7Day);
-        renderMetricsCard(totals7Day);
+        const totals7DayCurrent = calculateTotals(
+          state.combinedData.slice(0, 7)
+        );
+        const totals7DayPrevious = calculateTotals(
+          state.combinedData.slice(7, 14)
+        );
+
+        renderFunnelChart(totals7DayCurrent);
+        renderMetricsCard(totals7DayCurrent, totals7DayPrevious);
         renderAllTimeSeriesCharts();
         renderDataTable();
       }
@@ -663,12 +672,12 @@
       }
 
       /**
-       * Calculates aggregate totals and derived metrics over a specified number of days.
-       * @param {number} days - The number of recent days to include in the calculation.
+       * Calculates aggregate totals and derived metrics over a specified period.
+       * @param {Array<Object>} periodData - The data for the period.
        * @returns {Object} An object containing all total and derived metrics.
        */
-      function calculateTotals(days) {
-        const periodData = state.combinedData.slice(0, days);
+      function calculateTotals(periodData) {
+        const hasData = periodData && periodData.length > 0;
         const totals = periodData.reduce((acc, day) => {
           Object.keys(day).forEach((key) => {
             if (
@@ -707,6 +716,7 @@
           google: calculateDerivedMetrics(googleTotals),
           meta: calculateDerivedMetrics(metaTotals),
           total: calculateDerivedMetrics(allTotals),
+          hasData: hasData,
         };
       }
 
@@ -744,7 +754,7 @@
           },
           plotOptions: {
             bar: {
-              horizontal: false, // This makes it a column chart
+              horizontal: false,
             },
           },
           colors: ["#3B82F6", "#10B981"], // Blue for Google, Green for Meta
@@ -753,7 +763,6 @@
             formatter: (val, { seriesIndex, dataPointIndex }) => {
               const originalValue =
                 seriesData[seriesIndex].data[dataPointIndex];
-              // Only show label if value is significant enough to display
               if (originalValue > 0) {
                 return formatNumber(originalValue);
               }
@@ -793,71 +802,113 @@
         state.charts.funnel.render();
       }
 
+      /**
+       * Generates HTML for the metric comparison badge.
+       * @param {number} current - The current period's value.
+       * @param {number|undefined} previous - The previous period's value.
+       * @param {boolean} higherIsBetter - True if a higher value is better.
+       * @param {Function} formatFn - The function to format the number.
+       * @returns {string} The HTML string for the comparison badge.
+       */
+      function getComparisonHtml(current, previous, higherIsBetter, formatFn) {
+        if (previous === undefined) return "";
+
+        if (previous === 0 && current > 0) {
+          return `<span class="text-sm font-medium text-green-600">▲ New</span>`;
+        }
+
+        const diff = current - previous;
+        if (Math.abs(diff) < 0.001) {
+          // Use a small epsilon for float comparison
+          return `<span class="text-sm font-medium text-gray-500">No change</span>`;
+        }
+
+        let isBetter;
+        if (diff > 0) isBetter = higherIsBetter;
+        else isBetter = !higherIsBetter;
+
+        const colorClass = isBetter ? "text-green-600" : "text-red-600";
+        const arrow = diff > 0 ? "▲" : "▼";
+        const formattedDiff = formatFn(Math.abs(diff));
+
+        return `<span class="text-sm font-medium ${colorClass}">${arrow} ${formattedDiff}</span>`;
+      }
+
       /** Renders the performance metrics summary card. */
-      function renderMetricsCard(totals) {
+      function renderMetricsCard(currentTotals, previousTotals) {
         const metricConfig = [
           {
             title: "Impressions",
             keyBase: "Impressions",
-            keyDerived: null,
             format: formatNumber,
+            higherIsBetter: true,
           },
           {
             title: "Clicks",
             keyBase: "Clicks",
-            keyDerived: null,
             format: formatNumber,
+            higherIsBetter: true,
           },
           {
             title: "Conversions",
             keyBase: "Conversions",
-            keyDerived: null,
             format: formatNumber,
+            higherIsBetter: true,
           },
           {
             title: "Cost per mille (CPM)",
-            keyBase: null,
             keyDerived: "cpm",
             format: formatCurrency,
+            higherIsBetter: false,
           },
           {
             title: "Cost per click (CPC)",
-            keyBase: null,
             keyDerived: "cpc",
             format: formatCurrency,
+            higherIsBetter: false,
           },
           {
             title: "Cost Per Lead (CPL)",
-            keyBase: null,
             keyDerived: "cpl",
             format: formatCurrency,
+            higherIsBetter: false,
           },
           {
             title: "Click-Through Rate (CTR)",
-            keyBase: null,
             keyDerived: "ctr",
             format: formatPercent,
+            higherIsBetter: true,
           },
           {
             title: "Conversion Rate (CVR)",
-            keyBase: null,
             keyDerived: "cvr",
             format: formatPercent,
+            higherIsBetter: true,
           },
           {
             title: "Total Cost",
             keyBase: "Cost",
-            keyDerived: null,
             format: formatCurrency,
+            higherIsBetter: false,
           },
         ];
 
-        const metricItem = ({ title, total, google, meta, format }) => `
+        const metricItem = ({
+          title,
+          total,
+          google,
+          meta,
+          format,
+          comparison,
+        }) => `
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <p class="text-sm font-medium text-gray-500">${title}</p>
-                <p class="text-2xl font-bold text-gray-900 mt-1">${format(
-                  total
-                )}</p>
+                <div class="mt-1 flex items-baseline gap-2">
+                  <p class="text-2xl font-bold text-gray-900">${format(
+                    total
+                  )}</p>
+                  ${comparison}
+                </div>
                 <p class="text-xs text-gray-600 mt-2">G: ${format(
                   google
                 )} | M: ${format(meta)}</p>
@@ -866,21 +917,39 @@
         DOM.metricsCard.innerHTML = metricConfig
           .map((m) => {
             const isDerived = !!m.keyDerived;
+
+            // Current values
             const t = isDerived
-              ? totals.total[m.keyDerived]
-              : totals[`total${m.keyBase}`];
+              ? currentTotals.total[m.keyDerived]
+              : currentTotals[`total${m.keyBase}`];
             const g = isDerived
-              ? totals.google[m.keyDerived]
-              : totals[`google${m.keyBase}`];
+              ? currentTotals.google[m.keyDerived]
+              : currentTotals[`google${m.keyBase}`];
             const M = isDerived
-              ? totals.meta[m.keyDerived]
-              : totals[`meta${m.keyBase}`];
+              ? currentTotals.meta[m.keyDerived]
+              : currentTotals[`meta${m.keyBase}`];
+
+            // Previous value for comparison
+            const prev_t = previousTotals.hasData
+              ? isDerived
+                ? previousTotals.total[m.keyDerived]
+                : previousTotals[`total${m.keyBase}`]
+              : undefined;
+
+            const comparisonHtml = getComparisonHtml(
+              t,
+              prev_t,
+              m.higherIsBetter,
+              m.format
+            );
+
             return metricItem({
               title: m.title,
               total: t,
               google: g,
               meta: M,
               format: m.format,
+              comparison: comparisonHtml,
             });
           })
           .join("");
