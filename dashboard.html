@@ -50,7 +50,7 @@
     </style>
   </head>
   <body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto py-8">
+    <div class="container mx-auto px-2 py-8">
       <!-- Header -->
       <div class="mb-8 text-center">
         <h1 class="text-3xl font-bold text-gray-900 mb-2">
@@ -163,6 +163,86 @@
                 All Sources
               </h3>
               <div id="timeSeriesChartAll" class="chart-container mb-6"></div>
+            </div>
+          </div>
+
+          <!-- NEW: Cost Efficiency Trends -->
+          <div class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">
+              30-Day Cost Efficiency Trends
+            </h2>
+            <div
+              class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6"
+            >
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                Google (Cost Metrics)
+              </h3>
+              <div
+                id="timeSeriesChartGoogleCost"
+                class="chart-container mb-6"
+              ></div>
+            </div>
+            <div
+              class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6"
+            >
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                Meta (Cost Metrics)
+              </h3>
+              <div
+                id="timeSeriesChartMetaCost"
+                class="chart-container mb-6"
+              ></div>
+            </div>
+            <div
+              class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6"
+            >
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                All Sources (Cost Metrics)
+              </h3>
+              <div
+                id="timeSeriesChartAllCost"
+                class="chart-container mb-6"
+              ></div>
+            </div>
+          </div>
+
+          <!-- NEW: Rate Efficiency Trends -->
+          <div class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">
+              30-Day Rate Efficiency Trends
+            </h2>
+            <div
+              class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6"
+            >
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                Google (Rate Metrics)
+              </h3>
+              <div
+                id="timeSeriesChartGoogleRate"
+                class="chart-container mb-6"
+              ></div>
+            </div>
+            <div
+              class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6"
+            >
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                Meta (Rate Metrics)
+              </h3>
+              <div
+                id="timeSeriesChartMetaRate"
+                class="chart-container mb-6"
+              ></div>
+            </div>
+            <div
+              class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6"
+            >
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                All Sources (Rate Metrics)
+              </h3>
+              <div
+                id="timeSeriesChartAllRate"
+                class="chart-container mb-6"
+              ></div>
             </div>
           </div>
 
@@ -551,6 +631,12 @@
               googleCPL: googleDerived.cpl,
               metaCPL: metaDerived.cpl,
               totalCPL: totalDerived.cpl,
+              googleCTR: googleDerived.ctr,
+              metaCTR: metaDerived.ctr,
+              totalCTR: totalDerived.ctr,
+              googleCVR: googleDerived.cvr,
+              metaCVR: metaDerived.cvr,
+              totalCVR: totalDerived.cvr,
             };
           })
           .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -585,7 +671,12 @@
         const periodData = state.combinedData.slice(0, days);
         const totals = periodData.reduce((acc, day) => {
           Object.keys(day).forEach((key) => {
-            if (key !== "date" && !key.toLowerCase().includes("cp")) {
+            if (
+              key !== "date" &&
+              !key.toLowerCase().includes("cp") &&
+              !key.toLowerCase().includes("ctr") &&
+              !key.toLowerCase().includes("cvr")
+            ) {
               acc[key] = (acc[key] || 0) + day[key];
             }
           });
@@ -648,7 +739,9 @@
             logBase: 10,
           },
         };
-        new ApexCharts(DOM.funnelChart, options).render();
+        if (state.charts.funnel) state.charts.funnel.destroy();
+        state.charts.funnel = new ApexCharts(DOM.funnelChart, options);
+        state.charts.funnel.render();
       }
 
       /** Renders the performance metrics summary card. */
@@ -738,37 +831,108 @@
           .join("");
       }
 
-      /** Renders all three time series charts. */
+      /** Renders all nine time series charts. */
       function renderAllTimeSeriesCharts() {
         const sortedData = [...state.combinedData].sort(
           (a, b) => new Date(a.date) - new Date(b.date)
         );
-        const chartConfigs = [
+        const platforms = [
           { title: "Google", sourceKey: "google" },
           { title: "Meta", sourceKey: "meta" },
           { title: "All", sourceKey: "total" },
         ];
 
-        chartConfigs.forEach(({ title, sourceKey }) => {
-          const series = METRICS_FOR_TIMESERIES.map((metric, i) => ({
+        // 1. Volume Charts (Impressions, Clicks, Conversions)
+        const volumeMetrics = ["Impressions", "Clicks", "Conversions"];
+        const volumeYAxis = [
+          { title: { text: "Impressions" }, decimalsInFloat: 0 },
+          {
+            opposite: true,
+            title: { text: "Clicks & Conversions" },
+            decimalsInFloat: 0,
+          },
+        ];
+        platforms.forEach((p) => {
+          const series = volumeMetrics.map((metric, i) => ({
             name: metric,
             data: sortedData.map((d) => ({
               x: d.date,
-              y: d[`${sourceKey}${metric}`],
+              y: d[`${p.sourceKey}${metric}`],
             })),
-            yAxisIndex: i === 0 ? 0 : 1, // Impressions on primary axis, others on secondary
+            yAxisIndex: i === 0 ? 0 : 1,
           }));
-          createTimeSeriesChart(title, series);
+          createTimeSeriesChart(
+            `#timeSeriesChart${p.title}`,
+            series,
+            volumeYAxis,
+            ["#3B82F6", "#10B981", "#F59E0B"]
+          );
+        });
+
+        // 2. Cost Efficiency Charts (CPM, CPC, CPL)
+        const costMetrics = ["CPM", "CPC", "CPL"];
+        const costYAxis = {
+          title: { text: "Cost ($)" },
+          labels: {
+            formatter: (val) => (val !== null ? `$${val.toFixed(2)}` : ""),
+          },
+        };
+        platforms.forEach((p) => {
+          const series = costMetrics.map((metric) => ({
+            name: metric,
+            data: sortedData.map((d) => ({
+              x: d.date,
+              y: d[`${p.sourceKey}${metric}`],
+            })),
+          }));
+          createTimeSeriesChart(
+            `#timeSeriesChart${p.title}Cost`,
+            series,
+            costYAxis,
+            ["#EF4444", "#F97316", "#8B5CF6"]
+          );
+        });
+
+        // 3. Rate Efficiency Charts (CTR, CVR)
+        const rateMetrics = ["CTR", "CVR"];
+        const rateYAxis = {
+          title: { text: "Rate (%)" },
+          labels: {
+            formatter: (val) => (val !== null ? `${val.toFixed(2)}%` : ""),
+          },
+        };
+        platforms.forEach((p) => {
+          const series = rateMetrics.map((metric) => ({
+            name: metric,
+            data: sortedData.map((d) => ({
+              x: d.date,
+              y: d[`${p.sourceKey}${metric}`],
+            })),
+          }));
+          createTimeSeriesChart(
+            `#timeSeriesChart${p.title}Rate`,
+            series,
+            rateYAxis,
+            ["#0EA5E9", "#14B8A6"]
+          );
         });
       }
 
       /**
        * Creates and renders a single time series chart.
-       * @param {string} title - The chart's title, used for the DOM element ID.
+       * @param {string} elementId - The ID selector for the chart's container div.
        * @param {Array<Object>} seriesData - The data series for the chart.
+       * @param {Object|Array<Object>} yaxisOptions - The y-axis configuration for ApexCharts.
+       * @param {Array<string>} colors - An array of hex codes for chart colors.
        */
-      function createTimeSeriesChart(title, seriesData) {
-        if (state.charts[title]) state.charts[title].destroy();
+      function createTimeSeriesChart(
+        elementId,
+        seriesData,
+        yaxisOptions,
+        colors
+      ) {
+        if (state.charts[elementId]) state.charts[elementId].destroy();
+
         const options = {
           series: seriesData,
           chart: {
@@ -777,25 +941,33 @@
             toolbar: { show: false },
             zoom: { enabled: false },
           },
-          colors: ["#3B82F6", "#10B981", "#F59E0B"],
+          colors: colors || [
+            "#3B82F6",
+            "#10B981",
+            "#F59E0B",
+            "#EF4444",
+            "#8B5CF6",
+          ],
           dataLabels: { enabled: false },
           stroke: { curve: "smooth", width: 3 },
-          xaxis: { type: "datetime", title: { text: "Date" } },
-          yaxis: [
-            { title: { text: "Impressions" }, decimalsInFloat: 0 },
-            {
-              opposite: true,
-              title: { text: "Clicks & Conversions" },
-              decimalsInFloat: 0,
-            },
-          ],
+          xaxis: {
+            type: "datetime",
+            title: { text: "Date" },
+          },
+          yaxis: yaxisOptions,
           legend: { position: "top", clusterGroupedSeries: false },
+          tooltip: {
+            x: { format: "dd MMM yyyy" },
+          },
         };
-        state.charts[title] = new ApexCharts(
-          document.querySelector(`#timeSeriesChart${title}`),
-          options
-        );
-        state.charts[title].render();
+
+        const chartElement = document.querySelector(elementId);
+        if (chartElement) {
+          state.charts[elementId] = new ApexCharts(chartElement, options);
+          state.charts[elementId].render();
+        } else {
+          console.error(`Chart element not found: ${elementId}`);
+        }
       }
 
       /** Renders the filter buttons for the data table metrics. */
