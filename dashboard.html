@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Marketing Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+      @media print {
+        .no-print {
+          display: none !important;
+        }
+        .print-page-break {
+          page-break-before: always;
+        }
+        body {
+          margin: 0;
+          padding: 20px;
+        }
+        .chart-container {
+          height: 400px !important;
+        }
+      }
+      .chart-container {
+        min-height: 400px;
+      }
+      .filter-btn {
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 14px;
+        transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        border: 1px solid #d1d5db; /* border-gray-300 */
+        cursor: pointer;
+      }
+      .filter-btn.active-filter {
+        background-color: #2563eb; /* bg-blue-600 */
+        color: white;
+        border-color: #2563eb; /* border-blue-600 */
+      }
+      .filter-btn:not(.active-filter) {
+        background-color: #f9fafb; /* bg-gray-50 */
+        color: #374151; /* text-gray-700 */
+      }
+      .filter-btn:not(.active-filter):hover {
+        background-color: #f3f4f6; /* bg-gray-100 */
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto py-8">
+      <!-- Header -->
+      <div class="mb-8 text-center">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+          Marketing Analytics Dashboard
+        </h1>
+      </div>
+
+      <!-- File Upload Section -->
+      <div id="fileUpload" class="mb-8">
+        <div class="max-w-2xl mx-auto">
+          <div
+            id="fileUploadArea"
+            class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer"
+          >
+            <svg
+              class="mx-auto h-12 w-12 text-gray-400"
+              stroke="currentColor"
+              fill="none"
+              viewBox="0 0 48 48"
+            >
+              <path
+                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <div class="mt-4">
+              <span class="text-lg font-medium text-gray-900 block"
+                >Drag & drop your Google and Meta CSV files here</span
+              >
+              <p class="text-sm text-gray-500 mt-1">
+                or click anywhere to select them
+              </p>
+              <input
+                id="file-upload"
+                name="file-upload"
+                type="file"
+                class="sr-only"
+                multiple
+                accept=".csv"
+              />
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+              Please upload exactly two CSV files
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Content -->
+      <div id="dashboard" class="hidden">
+        <!-- 7-Day Performance Summary -->
+        <div class="mb-8">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">
+            7-Day Performance Summary
+          </h2>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Conversion Funnel -->
+            <div
+              class="bg-white rounded-lg border border-gray-200 shadow-sm p-6"
+            >
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                Conversion Funnel
+              </h3>
+              <div id="funnelChart" class="chart-container"></div>
+            </div>
+
+            <!-- Performance Metrics -->
+            <div
+              class="bg-white rounded-lg border border-gray-200 shadow-sm p-6"
+            >
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                Performance Metrics
+              </h3>
+              <div
+                id="metricsCard"
+                class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Time Series Charts -->
+        <div class="mb-8">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">
+            30-Day Time Series Trends
+          </h2>
+          <div
+            class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6"
+          >
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Google</h3>
+            <div id="timeSeriesChartGoogle" class="chart-container mb-6"></div>
+          </div>
+          <div
+            class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6"
+          >
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Meta</h3>
+            <div id="timeSeriesChartMeta" class="chart-container mb-6"></div>
+          </div>
+        </div>
+
+        <!-- Second Page Content -->
+        <div class="print-page-break">
+          <div class="mb-8">
+            <div
+              class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6"
+            >
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                All Sources
+              </h3>
+              <div id="timeSeriesChartAll" class="chart-container mb-6"></div>
+            </div>
+          </div>
+
+          <!-- Data Table Card (shadcn/ui inspired) -->
+          <div
+            class="rounded-lg border border-gray-200 bg-white text-gray-900 shadow-sm"
+          >
+            <div
+              class="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 p-6"
+            >
+              <div>
+                <h3 class="text-lg font-semibold leading-none tracking-tight">
+                  Daily Performance Data
+                </h3>
+                <p class="text-sm text-gray-500 mt-1">
+                  Select platforms and metrics to display in the table.
+                </p>
+              </div>
+              <!-- Filter Controls -->
+              <div class="flex flex-col items-start sm:items-end space-y-3">
+                <div id="platformFilters" class="flex items-center space-x-2">
+                  <button
+                    data-platform="google"
+                    class="filter-btn active-filter"
+                  >
+                    Google
+                  </button>
+                  <button data-platform="meta" class="filter-btn active-filter">
+                    Meta
+                  </button>
+                  <button
+                    data-platform="total"
+                    class="filter-btn active-filter"
+                  >
+                    Total
+                  </button>
+                </div>
+                <div
+                  id="metricFilters"
+                  class="flex items-center flex-wrap gap-2 justify-start sm:justify-end"
+                >
+                  <!-- Metric buttons will be generated by JS -->
+                </div>
+              </div>
+            </div>
+
+            <div class="p-6 pt-0">
+              <div class="relative w-full overflow-auto">
+                <table id="dataTable" class="w-full text-sm">
+                  <thead id="dataTableHead" class="[&_tr]:border-b">
+                    <!-- Header will be generated by JS -->
+                  </thead>
+                  <tbody
+                    class="[&_tr:last-child]:border-0"
+                    id="tableBody"
+                  ></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error Message -->
+      <div id="errorMessage" class="hidden">
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+          <div class="flex items-center justify-center">
+            <svg
+              class="h-5 w-5 text-red-400 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span id="errorText" class="text-red-700 font-medium"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // --- 1. CONFIGURATION & CONSTANTS ---
+      const GOOGLE_FILE_PREFIX = "Time_series";
+      const METRICS_FOR_TIMESERIES = ["Impressions", "Clicks", "Conversions"];
+      const TABLE_COLUMN_DEFINITIONS = [
+        { key: "Impressions" },
+        { key: "Clicks" },
+        { key: "Conversions" },
+        { key: "Cost" },
+        { key: "CPM" },
+        { key: "CPC" },
+        { key: "CPL" },
+      ];
+
+      // --- 2. STATE MANAGEMENT ---
+      const state = {
+        googleData: [],
+        metaData: [],
+        combinedData: [],
+        charts: {},
+        visiblePlatforms: ["google", "meta", "total"],
+        visibleMetrics: TABLE_COLUMN_DEFINITIONS.map((def) => def.key),
+      };
+
+      // --- 3. DOM ELEMENT SELECTORS ---
+      const DOM = {
+        fileUpload: document.getElementById("fileUpload"),
+        fileUploadArea: document.getElementById("fileUploadArea"),
+        fileInput: document.getElementById("file-upload"),
+        dashboard: document.getElementById("dashboard"),
+        errorMessage: document.getElementById("errorMessage"),
+        errorText: document.getElementById("errorText"),
+        funnelChart: document.querySelector("#funnelChart"),
+        metricsCard: document.getElementById("metricsCard"),
+        dataTable: document.getElementById("dataTable"),
+        dataTableHead: document.getElementById("dataTableHead"),
+        tableBody: document.getElementById("tableBody"),
+        platformFilters: document.getElementById("platformFilters"),
+        metricFilters: document.getElementById("metricFilters"),
+      };
+
+      // --- 4. MAIN APPLICATION FLOW & INITIALIZATION ---
+
+      /** Initializes all event listeners when the script loads. */
+      function initialize() {
+        setupEventListeners();
+        renderMetricFilterControls();
+      }
+
+      /**
+       * Handles file selection, parsing, processing, and dashboard rendering.
+       * @param {FileList} files - The files selected by the user.
+       */
+      async function handleFiles(files) {
+        hideError();
+        if (files.length !== 2)
+          return showError("Please upload exactly two CSV files.");
+
+        const fileArray = Array.from(files);
+        const googleFile = fileArray.find((f) =>
+          f.name.startsWith(GOOGLE_FILE_PREFIX)
+        );
+        if (!googleFile)
+          return showError(`One file must start with "${GOOGLE_FILE_PREFIX}".`);
+
+        const metaFile = fileArray.find((file) => file !== googleFile);
+
+        try {
+          const [googleResult, metaResult] = await Promise.all([
+            parseCSV(googleFile),
+            parseCSV(metaFile),
+          ]);
+          processRawData(googleResult, metaResult);
+          renderDashboard();
+          showDashboard();
+        } catch (error) {
+          showError(`Error processing files: ${error.message}`);
+          console.error(error);
+        }
+      }
+
+      /** Processes raw data and triggers all rendering functions. */
+      function renderDashboard() {
+        const totals7Day = calculateTotals(7);
+        renderFunnelChart(totals7Day);
+        renderMetricsCard(totals7Day);
+        renderAllTimeSeriesCharts();
+        renderDataTable();
+      }
+
+      // --- 5. EVENT LISTENERS ---
+
+      /** Sets up all event listeners for the application. */
+      function setupEventListeners() {
+        DOM.fileUploadArea.addEventListener("click", () =>
+          DOM.fileInput.click()
+        );
+        DOM.fileInput.addEventListener("change", (e) =>
+          handleFiles(e.target.files)
+        );
+
+        const dragEvents = ["dragover", "dragleave", "drop"];
+        dragEvents.forEach((type) => {
+          DOM.fileUploadArea.addEventListener(type, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (type === "dragover")
+              DOM.fileUploadArea.classList.add("border-blue-400");
+            else DOM.fileUploadArea.classList.remove("border-blue-400");
+            if (type === "drop") handleFiles(e.dataTransfer.files);
+          });
+        });
+
+        DOM.platformFilters.addEventListener("click", (e) =>
+          handleFilterClick(e, "visiblePlatforms")
+        );
+        DOM.metricFilters.addEventListener("click", (e) =>
+          handleFilterClick(e, "visibleMetrics")
+        );
+      }
+
+      /**
+       * Handles clicks on filter buttons for platforms and metrics.
+       * @param {Event} e - The click event.
+       * @param {'visiblePlatforms' | 'visibleMetrics'} stateKey - The key in the state object to modify.
+       */
+      function handleFilterClick(e, stateKey) {
+        if (!e.target.matches(".filter-btn")) return;
+
+        const button = e.target;
+        const key = button.dataset.platform || button.dataset.metric;
+
+        button.classList.toggle("active-filter");
+
+        const currentSet = new Set(state[stateKey]);
+        if (currentSet.has(key)) currentSet.delete(key);
+        else currentSet.add(key);
+        state[stateKey] = Array.from(currentSet);
+
+        renderDataTable();
+      }
+
+      // --- 6. UI UPDATE & UTILITY FUNCTIONS ---
+
+      const showDashboard = () => {
+        DOM.fileUpload.classList.add("hidden");
+        DOM.dashboard.classList.remove("hidden");
+      };
+      const showError = (message) => {
+        DOM.errorText.textContent = message;
+        DOM.errorMessage.classList.remove("hidden");
+        DOM.dashboard.classList.add("hidden");
+      };
+      const hideError = () => DOM.errorMessage.classList.add("hidden");
+
+      /**
+       * Parses a date string into YYYY-MM-DD format.
+       * @param {string} dateString - The date string to parse.
+       * @returns {string|null} The formatted date or null if invalid.
+       */
+      function parseDate(dateString) {
+        if (!dateString || typeof dateString !== "string") return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return dateString;
+
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return null;
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
+      const formatNumber = (num) => Math.round(num || 0).toLocaleString();
+      const formatCurrency = (num) => `$${parseFloat(num || 0).toFixed(2)}`;
+      const formatPercent = (num) => `${parseFloat(num || 0).toFixed(2)}%`;
+
+      /**
+       * Formats a value for the data table based on the metric key.
+       * @param {number} value - The numerical value.
+       * @param {string} key - The metric key (e.g., "Cost", "CPM").
+       * @returns {string} The formatted string.
+       */
+      function formatTableCell(value, key) {
+        const lowerKey = key.toLowerCase();
+        if (["cost", "cpm", "cpc", "cpl"].some((k) => lowerKey.includes(k))) {
+          return formatCurrency(value);
+        }
+        return formatNumber(value);
+      }
+
+      // --- 7. DATA PROCESSING & TRANSFORMATION ---
+
+      /**
+       * Parses a CSV file into an array of objects.
+       * @param {File} file - The CSV file.
+       * @returns {Promise<Array<Object>>} A promise that resolves with the parsed data.
+       */
+      function parseCSV(file) {
+        return new Promise((resolve, reject) => {
+          Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (res) => resolve(res.data),
+            error: (err) => reject(err),
+          });
+        });
+      }
+
+      /**
+       * Processes raw data from Google and Meta files into a clean format.
+       * @param {Array<Object>} googleRaw - Raw data from the Google CSV.
+       * @param {Array<Object>} metaRaw - Raw data from the Meta CSV.
+       */
+      function processRawData(googleRaw, metaRaw) {
+        state.googleData = googleRaw.map((row) => ({
+          date: parseDate(row.Date),
+          impressions: parseInt(row.Impressions) || 0,
+          clicks: parseInt(row.Clicks) || 0,
+          conversions: parseFloat(row.Conversions) || 0,
+          cost: parseFloat((row.Cost || "0").replace(/[^0-9.-]+/g, "")) || 0,
+        }));
+
+        const metaDaily = metaRaw.reduce((acc, row) => {
+          const date = parseDate(row["Reporting starts"]);
+          if (!date) return acc;
+          acc[date] = acc[date] || {
+            impressions: 0,
+            clicks: 0,
+            conversions: 0,
+            cost: 0,
+          };
+          acc[date].impressions += parseInt(row.Impressions) || 0;
+          acc[date].clicks += parseInt(row["Link clicks"]) || 0;
+          acc[date].conversions += parseInt(row.Results) || 0;
+          acc[date].cost += parseFloat(row["Amount spent (AUD)"]) || 0;
+          return acc;
+        }, {});
+        state.metaData = Object.entries(metaDaily).map(([date, data]) => ({
+          date,
+          ...data,
+        }));
+
+        mergeDataSources();
+      }
+
+      /** Merges and calculates daily metrics from Google and Meta data. */
+      function mergeDataSources() {
+        const allDates = new Set([
+          ...state.googleData.map((d) => d.date),
+          ...state.metaData.map((d) => d.date),
+        ]);
+        const emptyData = {
+          impressions: 0,
+          clicks: 0,
+          conversions: 0,
+          cost: 0,
+        };
+
+        state.combinedData = Array.from(allDates)
+          .map((date) => {
+            const googleDay = state.googleData.find((d) => d.date === date) || {
+              ...emptyData,
+            };
+            const metaDay = state.metaData.find((d) => d.date === date) || {
+              ...emptyData,
+            };
+
+            const totalDay = {
+              impressions: googleDay.impressions + metaDay.impressions,
+              clicks: googleDay.clicks + metaDay.clicks,
+              conversions: googleDay.conversions + metaDay.conversions,
+              cost: googleDay.cost + metaDay.cost,
+            };
+
+            const googleDerived = calculateDerivedMetrics(googleDay);
+            const metaDerived = calculateDerivedMetrics(metaDay);
+            const totalDerived = calculateDerivedMetrics(totalDay);
+
+            return {
+              date,
+              googleImpressions: googleDay.impressions,
+              metaImpressions: metaDay.impressions,
+              totalImpressions: totalDay.impressions,
+              googleClicks: googleDay.clicks,
+              metaClicks: metaDay.clicks,
+              totalClicks: totalDay.clicks,
+              googleConversions: googleDay.conversions,
+              metaConversions: metaDay.conversions,
+              totalConversions: totalDay.conversions,
+              googleCost: googleDay.cost,
+              metaCost: metaDay.cost,
+              totalCost: totalDay.cost,
+              googleCPM: googleDerived.cpm,
+              metaCPM: metaDerived.cpm,
+              totalCPM: totalDerived.cpm,
+              googleCPC: googleDerived.cpc,
+              metaCPC: metaDerived.cpc,
+              totalCPC: totalDerived.cpc,
+              googleCPL: googleDerived.cpl,
+              metaCPL: metaDerived.cpl,
+              totalCPL: totalDerived.cpl,
+            };
+          })
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+      }
+
+      /**
+       * Calculates derived metrics from base numbers.
+       * @param {Object} data - An object with cost, impressions, clicks, conversions.
+       * @returns {Object} An object with cpm, cpc, cpl, ctr, cvr.
+       */
+      function calculateDerivedMetrics({
+        cost = 0,
+        impressions = 0,
+        clicks = 0,
+        conversions = 0,
+      }) {
+        return {
+          cpm: impressions > 0 ? (cost / impressions) * 1000 : 0,
+          cpc: clicks > 0 ? cost / clicks : 0,
+          cpl: conversions > 0 ? cost / conversions : 0,
+          ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+          cvr: clicks > 0 ? (conversions / clicks) * 100 : 0,
+        };
+      }
+
+      /**
+       * Calculates aggregate totals and derived metrics over a specified number of days.
+       * @param {number} days - The number of recent days to include in the calculation.
+       * @returns {Object} An object containing all total and derived metrics.
+       */
+      function calculateTotals(days) {
+        const periodData = state.combinedData.slice(0, days);
+        const totals = periodData.reduce((acc, day) => {
+          Object.keys(day).forEach((key) => {
+            if (key !== "date" && !key.toLowerCase().includes("cp")) {
+              acc[key] = (acc[key] || 0) + day[key];
+            }
+          });
+          return acc;
+        }, {});
+
+        const googleTotals = {
+          cost: totals.googleCost,
+          impressions: totals.googleImpressions,
+          clicks: totals.googleClicks,
+          conversions: totals.googleConversions,
+        };
+        const metaTotals = {
+          cost: totals.metaCost,
+          impressions: totals.metaImpressions,
+          clicks: totals.metaClicks,
+          conversions: totals.metaConversions,
+        };
+        const allTotals = {
+          cost: totals.totalCost,
+          impressions: totals.totalImpressions,
+          clicks: totals.totalClicks,
+          conversions: totals.totalConversions,
+        };
+
+        return {
+          ...totals,
+          google: calculateDerivedMetrics(googleTotals),
+          meta: calculateDerivedMetrics(metaTotals),
+          total: calculateDerivedMetrics(allTotals),
+        };
+      }
+
+      // --- 8. DASHBOARD COMPONENT RENDERERS ---
+
+      /** Renders the conversion funnel chart. */
+      function renderFunnelChart(totals) {
+        const options = {
+          series: [
+            {
+              name: "Total",
+              data: [
+                totals.totalImpressions,
+                totals.totalClicks,
+                totals.totalConversions,
+              ],
+            },
+          ],
+          chart: { type: "bar", height: 350, toolbar: { show: false } },
+          plotOptions: { bar: { borderRadius: 4, horizontal: false } },
+          colors: ["#3B82F6"],
+          dataLabels: {
+            enabled: true,
+            formatter: (val) => val.toLocaleString(),
+          },
+          xaxis: { categories: ["Impressions", "Clicks", "Conversions"] },
+          yaxis: {
+            title: { text: "Count (Log Scale)" },
+            logarithmic: true,
+            logBase: 10,
+          },
+        };
+        new ApexCharts(DOM.funnelChart, options).render();
+      }
+
+      /** Renders the performance metrics summary card. */
+      function renderMetricsCard(totals) {
+        const metricConfig = [
+          {
+            title: "Impressions",
+            keyBase: "Impressions",
+            keyDerived: null,
+            format: formatNumber,
+          },
+          {
+            title: "Clicks",
+            keyBase: "Clicks",
+            keyDerived: null,
+            format: formatNumber,
+          },
+          {
+            title: "Conversions",
+            keyBase: "Conversions",
+            keyDerived: null,
+            format: formatNumber,
+          },
+          {
+            title: "Cost per mille (CPM)",
+            keyBase: null,
+            keyDerived: "cpm",
+            format: formatCurrency,
+          },
+          {
+            title: "Cost per click (CPC)",
+            keyBase: null,
+            keyDerived: "cpc",
+            format: formatCurrency,
+          },
+          {
+            title: "Cost Per Lead (CPL)",
+            keyBase: null,
+            keyDerived: "cpl",
+            format: formatCurrency,
+          },
+          {
+            title: "Click-Through Rate (CTR)",
+            keyBase: null,
+            keyDerived: "ctr",
+            format: formatPercent,
+          },
+          {
+            title: "Conversion Rate (CVR)",
+            keyBase: null,
+            keyDerived: "cvr",
+            format: formatPercent,
+          },
+        ];
+
+        const metricItem = ({ title, total, google, meta, format }) => `
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <p class="text-sm font-medium text-gray-500">${title}</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">${format(
+                  total
+                )}</p>
+                <p class="text-xs text-gray-600 mt-2">G: ${format(
+                  google
+                )} | M: ${format(meta)}</p>
+            </div>`;
+
+        DOM.metricsCard.innerHTML = metricConfig
+          .map((m) => {
+            const isDerived = !!m.keyDerived;
+            const t = isDerived
+              ? totals.total[m.keyDerived]
+              : totals[`total${m.keyBase}`];
+            const g = isDerived
+              ? totals.google[m.keyDerived]
+              : totals[`google${m.keyBase}`];
+            const M = isDerived
+              ? totals.meta[m.keyDerived]
+              : totals[`meta${m.keyBase}`];
+            return metricItem({
+              title: m.title,
+              total: t,
+              google: g,
+              meta: M,
+              format: m.format,
+            });
+          })
+          .join("");
+      }
+
+      /** Renders all three time series charts. */
+      function renderAllTimeSeriesCharts() {
+        const sortedData = [...state.combinedData].sort(
+          (a, b) => new Date(a.date) - new Date(b.date)
+        );
+        const chartConfigs = [
+          { title: "Google", sourceKey: "google" },
+          { title: "Meta", sourceKey: "meta" },
+          { title: "All", sourceKey: "total" },
+        ];
+
+        chartConfigs.forEach(({ title, sourceKey }) => {
+          const series = METRICS_FOR_TIMESERIES.map((metric, i) => ({
+            name: metric,
+            data: sortedData.map((d) => ({
+              x: d.date,
+              y: d[`${sourceKey}${metric}`],
+            })),
+            yAxisIndex: i === 0 ? 0 : 1, // Impressions on primary axis, others on secondary
+          }));
+          createTimeSeriesChart(title, series);
+        });
+      }
+
+      /**
+       * Creates and renders a single time series chart.
+       * @param {string} title - The chart's title, used for the DOM element ID.
+       * @param {Array<Object>} seriesData - The data series for the chart.
+       */
+      function createTimeSeriesChart(title, seriesData) {
+        if (state.charts[title]) state.charts[title].destroy();
+        const options = {
+          series: seriesData,
+          chart: {
+            type: "line",
+            height: 400,
+            toolbar: { show: false },
+            zoom: { enabled: false },
+          },
+          colors: ["#3B82F6", "#10B981", "#F59E0B"],
+          dataLabels: { enabled: false },
+          stroke: { curve: "smooth", width: 3 },
+          xaxis: { type: "datetime", title: { text: "Date" } },
+          yaxis: [
+            { title: { text: "Impressions" }, decimalsInFloat: 0 },
+            {
+              opposite: true,
+              title: { text: "Clicks & Conversions" },
+              decimalsInFloat: 0,
+            },
+          ],
+          legend: { position: "top", clusterGroupedSeries: false },
+        };
+        state.charts[title] = new ApexCharts(
+          document.querySelector(`#timeSeriesChart${title}`),
+          options
+        );
+        state.charts[title].render();
+      }
+
+      /** Renders the filter buttons for the data table metrics. */
+      function renderMetricFilterControls() {
+        DOM.metricFilters.innerHTML = TABLE_COLUMN_DEFINITIONS.map(
+          (def) =>
+            `<button data-metric="${def.key}" class="filter-btn active-filter">${def.key}</button>`
+        ).join("");
+      }
+
+      /** Renders the entire data table, including the header and body. */
+      function renderDataTable() {
+        renderDataTableHeader();
+        renderDataTableBody();
+      }
+
+      /** Renders the header of the data table based on visible filters. */
+      function renderDataTableHeader() {
+        const th_top =
+          "p-3 text-left font-semibold text-gray-800 uppercase tracking-wider border-b-2 border-gray-300";
+        const th_bottom =
+          "h-12 px-3 text-left align-middle font-medium text-gray-500 uppercase tracking-wider text-center";
+
+        const visibleCols = TABLE_COLUMN_DEFINITIONS.filter((c) =>
+          state.visibleMetrics.includes(c.key)
+        );
+        const platformCount = state.visiblePlatforms.length;
+
+        let headerHtml = `<tr class="border-b"><th rowspan="2" class="${th_top} align-bottom">Date</th>`;
+
+        if (platformCount === 0 || visibleCols.length === 0) {
+          const message =
+            platformCount === 0
+              ? "No Platforms Selected"
+              : "No Metrics Selected";
+          headerHtml += `<th class="${th_top} text-center">${message}</th></tr>`;
+        } else {
+          headerHtml += visibleCols
+            .map(
+              (col) =>
+                `<th colspan="${platformCount}" class="${th_top} text-center">${col.key}</th>`
+            )
+            .join("");
+          headerHtml += `</tr><tr>`;
+          headerHtml += visibleCols
+            .map(() =>
+              state.visiblePlatforms
+                .map(
+                  (p) =>
+                    `<th class="${th_bottom}">${
+                      p.charAt(0).toUpperCase() + p.slice(1)
+                    }</th>`
+                )
+                .join("")
+            )
+            .join("");
+          headerHtml += `</tr>`;
+        }
+        DOM.dataTableHead.innerHTML = headerHtml;
+      }
+
+      /** Renders the body of the data table based on combined data and visible filters. */
+      function renderDataTableBody() {
+        const visibleCols = TABLE_COLUMN_DEFINITIONS.filter((c) =>
+          state.visibleMetrics.includes(c.key)
+        );
+
+        const generateCells = (row) => {
+          if (state.visiblePlatforms.length === 0 || visibleCols.length === 0)
+            return "<td></td>";
+          return visibleCols
+            .map((col) =>
+              state.visiblePlatforms
+                .map((platform) => {
+                  const key = `${platform}${col.key}`;
+                  return `<td class="p-3 whitespace-nowrap text-sm text-gray-600 text-center">${formatTableCell(
+                    row[key],
+                    col.key
+                  )}</td>`;
+                })
+                .join("")
+            )
+            .join("");
+        };
+
+        DOM.tableBody.innerHTML = state.combinedData
+          .map(
+            (row) => `
+            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                <td class="p-3 whitespace-nowrap text-sm font-medium text-gray-800">${
+                  row.date
+                }</td>
+                ${generateCells(row)}
+            </tr>`
+          )
+          .join("");
+      }
+
+      // --- 9. START THE APP ---
+      initialize();
+    </script>
+  </body>
+</html>
