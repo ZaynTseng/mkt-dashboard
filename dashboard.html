@@ -26,6 +26,7 @@
       .chart-container {
         min-height: 400px;
       }
+      /* --- OLD/GENERIC FILTER BUTTON (still used for dropdowns) --- */
       .filter-btn {
         padding: 6px 12px;
         border-radius: 6px;
@@ -34,18 +35,28 @@
         transition: background-color 0.2s, color 0.2s, border-color 0.2s;
         border: 1px solid #d1d5db; /* border-gray-300 */
         cursor: pointer;
-      }
-      .filter-btn.active-filter {
-        background-color: #2563eb; /* bg-blue-600 */
-        color: white;
-        border-color: #2563eb; /* border-blue-600 */
-      }
-      .filter-btn:not(.active-filter) {
         background-color: #f9fafb; /* bg-gray-50 */
         color: #374151; /* text-gray-700 */
       }
-      .filter-btn:not(.active-filter):hover {
+      .filter-btn:hover {
         background-color: #f3f4f6; /* bg-gray-100 */
+      }
+
+      /* --- NEW SWITCH TAB STYLES --- */
+      .tab-btn {
+        padding: 6px 16px;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 14px;
+        color: #4b5563; /* text-gray-600 */
+        transition: all 0.2s ease-in-out;
+        cursor: pointer;
+      }
+      .tab-btn.active-tab {
+        background-color: white;
+        color: #111827; /* text-gray-900 */
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1),
+          0 1px 2px -1px rgb(0 0 0 / 0.1);
       }
 
       /* --- NEW DROPDOWN STYLES --- */
@@ -153,11 +164,15 @@
             <h2 id="summaryTitle" class="text-2xl font-bold text-gray-900">
               <!-- Title will be set by JS -->
             </h2>
-            <div id="summaryPeriodTabs" class="flex items-center space-x-2">
-              <button data-period="7" class="filter-btn active-filter">
+            <!-- NEW: Switch Tab Component -->
+            <div
+              id="summaryPeriodTabs"
+              class="flex items-center space-x-1 bg-gray-200 rounded-lg p-1"
+            >
+              <button data-period="7" class="tab-btn active-tab">
                 Last 7 Days
               </button>
-              <button data-period="30" class="filter-btn">Last 30 Days</button>
+              <button data-period="30" class="tab-btn">Last 30 Days</button>
             </div>
           </div>
           <div class="grid grid-cols-1 lg:grid-cols-[3fr_4fr] gap-6">
@@ -451,7 +466,6 @@
         dataTable: document.getElementById("dataTable"),
         dataTableHead: document.getElementById("dataTableHead"),
         tableBody: document.getElementById("tableBody"),
-        // NEW Dropdown Elements
         platformFilterBtn: document.getElementById("platformFilterBtn"),
         platformFilterPanel: document.getElementById("platformFilterPanel"),
         metricFilterBtn: document.getElementById("metricFilterBtn"),
@@ -539,7 +553,7 @@
        * @param {Event} e - The click event.
        */
       function handleSummaryPeriodChange(e) {
-        if (!e.target.matches(".filter-btn")) return;
+        if (!e.target.matches(".tab-btn")) return;
 
         const button = e.target;
         const period = parseInt(button.dataset.period, 10);
@@ -548,15 +562,16 @@
 
         state.summaryPeriod = period;
 
-        DOM.summaryPeriodTabs.querySelectorAll(".filter-btn").forEach((btn) => {
-          btn.classList.remove("active-filter");
+        // Update active button styles
+        DOM.summaryPeriodTabs.querySelectorAll(".tab-btn").forEach((btn) => {
+          btn.classList.remove("active-tab");
         });
-        button.classList.add("active-filter");
+        button.classList.add("active-tab");
 
         updateSummarySection();
       }
 
-      /** --- NEW DROPDOWN LOGIC --- */
+      /** --- DROPDOWN LOGIC --- */
 
       /** Initializes both platform and metric dropdown filters */
       function initializeDropdowns() {
@@ -610,7 +625,7 @@
       }
 
       /**
-       * Sets up the behavior for a dropdown (button click and panel changes).
+       * Sets up the behavior for a dropdown (button click).
        * @param {HTMLElement} button - The button that triggers the dropdown.
        * @param {HTMLElement} panel - The panel that contains the options.
        */
