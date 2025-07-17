@@ -714,29 +714,78 @@
 
       /** Renders the conversion funnel chart. */
       function renderFunnelChart(totals) {
+        const seriesData = [
+          {
+            name: "Google",
+            data: [
+              totals.googleImpressions,
+              totals.googleClicks,
+              totals.googleConversions,
+            ],
+          },
+          {
+            name: "Meta",
+            data: [
+              totals.metaImpressions,
+              totals.metaClicks,
+              totals.metaConversions,
+            ],
+          },
+        ];
+
         const options = {
-          series: [
-            {
-              name: "Total",
-              data: [
-                totals.totalImpressions,
-                totals.totalClicks,
-                totals.totalConversions,
-              ],
+          series: seriesData,
+          chart: {
+            type: "bar",
+            height: 350,
+            stacked: true,
+            stackType: "100%",
+            toolbar: { show: false },
+          },
+          plotOptions: {
+            bar: {
+              horizontal: false, // This makes it a column chart
             },
-          ],
-          chart: { type: "bar", height: 350, toolbar: { show: false } },
-          plotOptions: { bar: { borderRadius: 4, horizontal: false } },
-          colors: ["#3B82F6"],
+          },
+          colors: ["#3B82F6", "#10B981"], // Blue for Google, Green for Meta
           dataLabels: {
             enabled: true,
-            formatter: (val) => val.toLocaleString(),
+            formatter: (val, { seriesIndex, dataPointIndex }) => {
+              const originalValue =
+                seriesData[seriesIndex].data[dataPointIndex];
+              // Only show label if value is significant enough to display
+              if (originalValue > 0) {
+                return formatNumber(originalValue);
+              }
+              return "";
+            },
+            style: {
+              colors: ["#fff"],
+            },
+            dropShadow: {
+              enabled: true,
+              top: 1,
+              left: 1,
+              blur: 1,
+              opacity: 0.45,
+            },
           },
-          xaxis: { categories: ["Impressions", "Clicks", "Conversions"] },
+          xaxis: {
+            categories: ["Impressions", "Clicks", "Conversions"],
+          },
           yaxis: {
-            title: { text: "Count (Log Scale)" },
-            logarithmic: true,
-            logBase: 10,
+            title: {
+              text: "Platform Contribution",
+            },
+          },
+          legend: {
+            position: "top",
+            horizontalAlign: "center",
+          },
+          tooltip: {
+            y: {
+              formatter: (val) => val.toFixed(2) + "%",
+            },
           },
         };
         if (state.charts.funnel) state.charts.funnel.destroy();
