@@ -103,11 +103,21 @@
 
       <!-- Dashboard Content -->
       <div id="dashboard" class="hidden">
-        <!-- 7-Day Performance Summary -->
+        <!-- Performance Summary -->
         <div class="mb-8">
-          <h2 class="text-2xl font-bold text-gray-900 mb-6">
-            7-Day Performance Summary
-          </h2>
+          <div
+            class="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4"
+          >
+            <h2 id="summaryTitle" class="text-2xl font-bold text-gray-900">
+              <!-- Title will be set by JS -->
+            </h2>
+            <div id="summaryPeriodTabs" class="flex items-center space-x-2">
+              <button data-period="7" class="filter-btn active-filter">
+                Last 7 Days
+              </button>
+              <button data-period="30" class="filter-btn">Last 30 Days</button>
+            </div>
+          </div>
           <div class="grid grid-cols-1 lg:grid-cols-[3fr_4fr] gap-6">
             <!-- Conversion Funnel -->
             <div
@@ -349,6 +359,7 @@
         metaData: [],
         combinedData: [],
         charts: {},
+        summaryPeriod: 7,
         visiblePlatforms: ["google", "meta", "total"],
         visibleMetrics: TABLE_COLUMN_DEFINITIONS.map((def) => def.key),
       };
@@ -361,6 +372,8 @@
         dashboard: document.getElementById("dashboard"),
         errorMessage: document.getElementById("errorMessage"),
         errorText: document.getElementById("errorText"),
+        summaryTitle: document.getElementById("summaryTitle"),
+        summaryPeriodTabs: document.getElementById("summaryPeriodTabs"),
         funnelChart: document.querySelector("#funnelChart"),
         metricsCard: document.getElementById("metricsCard"),
         dataTable: document.getElementById("dataTable"),
@@ -412,9 +425,7 @@
 
       /** Processes raw data and triggers all rendering functions. */
       function renderDashboard() {
-        const totals7Day = calculateTotals(7);
-        renderFunnelChart(totals7Day);
-        renderMetricsCard(totals7Day);
+        updateSummarySection();
         renderAllTimeSeriesCharts();
         renderDataTable();
       }
@@ -442,12 +453,40 @@
           });
         });
 
+        DOM.summaryPeriodTabs.addEventListener(
+          "click",
+          handleSummaryPeriodChange
+        );
         DOM.platformFilters.addEventListener("click", (e) =>
           handleFilterClick(e, "visiblePlatforms")
         );
         DOM.metricFilters.addEventListener("click", (e) =>
           handleFilterClick(e, "visibleMetrics")
         );
+      }
+
+      /**
+       * Handles clicks on the summary period tabs (7/30 days).
+       * @param {Event} e - The click event.
+       */
+      function handleSummaryPeriodChange(e) {
+        if (!e.target.matches(".filter-btn")) return;
+
+        const button = e.target;
+        const period = parseInt(button.dataset.period, 10);
+
+        if (state.summaryPeriod === period) return; // No change
+
+        state.summaryPeriod = period;
+
+        // Update active button styles
+        DOM.summaryPeriodTabs.querySelectorAll(".filter-btn").forEach((btn) => {
+          btn.classList.remove("active-filter");
+        });
+        button.classList.add("active-filter");
+
+        // Re-render the summary section
+        updateSummarySection();
       }
 
       /**
@@ -711,6 +750,14 @@
       }
 
       // --- 8. DASHBOARD COMPONENT RENDERERS ---
+
+      /** Renders the summary section (funnel and metrics) based on the current state.summaryPeriod. */
+      function updateSummarySection() {
+        DOM.summaryTitle.textContent = `${state.summaryPeriod}-Day Performance Summary`;
+        const totals = calculateTotals(state.summaryPeriod);
+        renderFunnelChart(totals);
+        renderMetricsCard(totals);
+      }
 
       /** Renders the conversion funnel chart. */
       function renderFunnelChart(totals) {
